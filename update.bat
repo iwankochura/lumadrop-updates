@@ -1,5 +1,7 @@
 @echo off
 setlocal DisableDelayedExpansion
+rem Force interactive feedback even if the parent process sets the test/automation flag.
+set "LUMADROP_AUTOMATED="
 chcp 65001 >nul
 title LumaDrop V3 - Update
 echo ============================================================
@@ -108,7 +110,7 @@ echo.
 echo [ГОТОВО] Обновление установлено.
 echo Откройте chrome://extensions и нажмите «Обновить» у LumaDrop.
 echo.
-if not defined LUMADROP_AUTOMATED pause
+pause
 exit /b 0
 
 :invalid_extraction
@@ -119,5 +121,5 @@ goto failed
 :failed
 if defined WORK rd /s /q "%WORK%" >nul 2>&1
 echo.
-if not defined LUMADROP_AUTOMATED pause
+pause
 exit /b 1
