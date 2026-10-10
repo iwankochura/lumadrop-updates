@@ -1,0 +1,10 @@
+{
+  "min_version": "1.1.0",
+  "current_version": "1.2.0",
+  "download_bat_url": "https://iwankochura.github.io/lumadrop-updates/update.bat",
+  "download_zip_url": "https://github.com/iwankochura/lumadrop-bin/releases/latest/download/LumaDropV3.zip",
+  "force_update": false,
+  "active": true,
+  "message": "",
+  "changelog": "Единый запуск патчера и встроенная проверка обновлений."
+}
