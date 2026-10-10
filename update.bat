@@ -24,11 +24,6 @@ if not defined TARGET (
   echo Положите update.bat рядом с папкой LumaDropV3 и запустите снова.
   goto failed
 )
-if not exist "%TARGET%\stop_server.bat" (
-  echo [ОШИБКА] В найденной папке нет stop_server.bat:
-  echo "%TARGET%"
-  goto failed
-)
 
 echo Папка программы: "%TARGET%"
 echo Скачиваю обновление...
@@ -51,7 +46,7 @@ if not exist "%ZIP_FILE%" (
 
 echo Проверяю архив и его состав...
 set "LUMA_EXTRACT_ROOT=%EXTRACT_ROOT%"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.IO.Compression.FileSystem; $archive=[IO.Compression.ZipFile]::OpenRead($env:LUMA_ZIP); try { $names=@($archive.Entries | ForEach-Object { $_.FullName }); $required=@('LumaDropV3/extension/manifest.json','LumaDropV3/server/LumaDropPatcher.exe','LumaDropV3/server/run_server.bat','LumaDropV3/server/stop_server.bat','LumaDropV3/run_server.bat','LumaDropV3/stop_server.bat'); foreach($name in $required){if($names -notcontains $name){throw ('Missing archive file: '+$name)}}; $root=[IO.Path]::GetFullPath($env:LUMA_EXTRACT_ROOT).TrimEnd([IO.Path]::DirectorySeparatorChar); foreach($entry in $archive.Entries){if(-not $entry.FullName.StartsWith('LumaDropV3/')){throw 'Unexpected item outside LumaDropV3 folder'}; $full=[IO.Path]::GetFullPath((Join-Path $root $entry.FullName)); if(-not $full.StartsWith($root+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe path in ZIP'}}; $manifestEntry=$archive.GetEntry('LumaDropV3/extension/manifest.json'); $reader=[IO.StreamReader]::new($manifestEntry.Open()); try{$manifest=$reader.ReadToEnd()|ConvertFrom-Json}finally{$reader.Dispose()}; $parsedVersion=[version]::MinValue; if(-not [version]::TryParse([string]$manifest.version,[ref]$parsedVersion) -or $parsedVersion.Build -lt 0){throw 'Invalid extension version'}; Write-Output ('Archive version: '+$manifest.version) } finally {$archive.Dispose()}"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.IO.Compression.FileSystem; $archive=[IO.Compression.ZipFile]::OpenRead($env:LUMA_ZIP); try { $names=@($archive.Entries | ForEach-Object { $_.FullName }); $required=@('LumaDropV3/extension/manifest.json','LumaDropV3/LumaDropPatcher.exe','LumaDropV3/README.txt','LumaDropV3/version.txt'); foreach($name in $required){if($names -notcontains $name){throw ('Missing archive file: '+$name)}}; $root=[IO.Path]::GetFullPath($env:LUMA_EXTRACT_ROOT).TrimEnd([IO.Path]::DirectorySeparatorChar); foreach($entry in $archive.Entries){if(-not $entry.FullName.StartsWith('LumaDropV3/')){throw 'Unexpected item outside LumaDropV3 folder'}; $full=[IO.Path]::GetFullPath((Join-Path $root $entry.FullName)); if(-not $full.StartsWith($root+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe path in ZIP'}}; $manifestEntry=$archive.GetEntry('LumaDropV3/extension/manifest.json'); $reader=[IO.StreamReader]::new($manifestEntry.Open()); try{$manifest=$reader.ReadToEnd()|ConvertFrom-Json}finally{$reader.Dispose()}; $parsedVersion=[version]::MinValue; if(-not [version]::TryParse([string]$manifest.version,[ref]$parsedVersion) -or $parsedVersion.Build -lt 0){throw 'Invalid extension version'}; Write-Output ('Archive version: '+$manifest.version) } finally {$archive.Dispose()}"
 if errorlevel 1 (
   echo [ОШИБКА] Архив повреждён или в нём неверная структура. Старая версия сохранена.
   goto failed
@@ -76,17 +71,12 @@ if errorlevel 1 (
 )
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath $env:LUMA_ZIP -DestinationPath '%NEW_ROOT%' -Force"
 if errorlevel 1 goto invalid_extraction
-if not exist "%NEW_ROOT%\LumaDropV3\run_server.bat" goto invalid_extraction
 if not exist "%NEW_ROOT%\LumaDropV3\extension\manifest.json" goto invalid_extraction
-if not exist "%NEW_ROOT%\LumaDropV3\server\LumaDropPatcher.exe" goto invalid_extraction
+if not exist "%NEW_ROOT%\LumaDropV3\LumaDropPatcher.exe" goto invalid_extraction
 
 echo Останавливаю старый патчер...
-set "LUMADROP_AUTOMATED=1"
-call "%TARGET%\stop_server.bat"
-if errorlevel 1 (
-  echo [ОШИБКА] Не удалось остановить старый патчер. Старая версия сохранена.
-  goto failed
-)
+taskkill /f /im LumaDropPatcher.exe >nul 2>&1
+timeout /t 2 /nobreak >nul
 powershell.exe -NoProfile -Command "$end=(Get-Date).AddSeconds(10); do { $listener=Get-NetTCPConnection -LocalPort 54789 -State Listen -ErrorAction SilentlyContinue; if(-not $listener){exit 0}; Start-Sleep -Milliseconds 250 } while((Get-Date)-lt $end); exit 1" >nul 2>&1
 if errorlevel 1 (
   echo [ОШИБКА] Порт 54789 всё ещё занят. Старая версия сохранена.
@@ -111,8 +101,9 @@ rd /s /q "%NEW_ROOT%" >nul 2>&1
 rd /s /q "%WORK%" >nul 2>&1
 echo.
 echo Запускаю новый патчер...
-call "%TARGET%\run_server.bat"
-if errorlevel 1 echo [ПРЕДУПРЕЖДЕНИЕ] Папка обновлена, но сервер не запустился. Проверьте журнал в локальном профиле Windows.
+start "" "%TARGET%\LumaDropPatcher.exe"
+if errorlevel 1 echo [ПРЕДУПРЕЖДЕНИЕ] Папка обновлена. Откройте LumaDropPatcher.exe вручную.
+echo В окне патчера нажмите «ЗАПУСТИТЬ».
 echo.
 echo [ГОТОВО] Обновление установлено.
 echo Откройте chrome://extensions и нажмите «Обновить» у LumaDrop.
