@@ -1,10 +1,10 @@
 {
   "min_version": "1.0.0",
-  "current_version": "1.2.1",
+  "current_version": "1.2.2",
   "download_bat_url": "https://iwankochura.github.io/lumadrop-updates/update.bat",
-  "download_zip_url": "https://github.com/iwankochura/lumadrop-bin/releases/latest/download/LumaDropV3-v1.2.1.zip",
+  "download_zip_url": "https://github.com/iwankochura/lumadrop-bin/releases/latest/download/LumaDropV3-v1.2.2.zip",
   "force_update": false,
   "active": true,
   "message": "",
-  "changelog": "Новое окно патчера с запуском, остановкой, журналом и треем. Поддержка MP4 и MOV через кнопку и перетаскивание. Проверка обновлений при открытии попапа и каждые 5 минут. EXE в корне папки. Попап v1.2.1 со ссылкой на Telegram."
+  "changelog": "тест обнова"
 }
