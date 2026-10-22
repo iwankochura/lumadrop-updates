@@ -1,0 +1,2 @@
+# Preserve CMD line endings in the file served by GitHub Pages.
+update.bat -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
