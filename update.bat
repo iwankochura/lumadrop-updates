@@ -93,7 +93,17 @@ function Stop-LumaPatcher([string]$Target, [Threading.CancellationToken]$Token) 
 }
 
 function Start-LumaPatcher([string]$Target) {
-    Start-Process -FilePath (Join-Path $Target 'LumaDropPatcher.exe') -ArgumentList '--start-server' -WorkingDirectory $Target -WindowStyle Normal -ErrorAction Stop | Out-Null
+    $expectedVersion = (Get-Content -LiteralPath (Join-Path $Target 'version.txt') -Raw).Trim()
+    Start-Process -FilePath (Join-Path $Target 'LumaDropPatcher.exe') -ArgumentList '--start-server' -WorkingDirectory $Target -WindowStyle Hidden -ErrorAction Stop | Out-Null
+    $deadline = [DateTime]::UtcNow.AddSeconds(45)
+    do {
+        try {
+            $health = Invoke-RestMethod -Uri 'http://127.0.0.1:54789/health' -TimeoutSec 2 -ErrorAction Stop
+            if ($health.status -eq 'ok' -and [string]$health.version -eq $expectedVersion) { return }
+        } catch { }
+        Start-Sleep -Milliseconds 400
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw 'Патчер не ответил после запуска. Открой LumaDropPatcher.exe и нажми кнопку питания.'
 }
 
 function Get-LumaRemoteText($Client, [string]$Uri, [Threading.CancellationToken]$Token) {
@@ -118,7 +128,7 @@ function Invoke-LumaUpdate {
     $work = $null; $stageRoot = $null; $backup = $null; $swapped = $false; $movedOld = $false; $canonicalBackup = $null; $movedCanonical = $false
     $client = [Net.Http.HttpClient]::new()
     $client.Timeout = [TimeSpan]::FromMinutes(20)
-    $client.DefaultRequestHeaders.UserAgent.ParseAdd('LumaDrop-Updater/2.0')
+    $client.DefaultRequestHeaders.UserAgent.ParseAdd('LumaDrop-Updater/2.0.0')
     try {
         & $Publish @{ Kind='Status'; Stage='ПРОВЕРКА ОБНОВЛЕНИЯ'; Detail='Ищем установленную программу'; Progress=0; Indeterminate=$true }
         $target = Get-LumaInstallDirectory $ScriptDirectory
@@ -305,8 +315,9 @@ function Invoke-LumaUpdate {
         }
         & $Publish @{ Kind='Log'; Text=('Установлена версия ' + $version + '.') }
         $launched = $true
+        & $Publish @{Kind='Status';Stage='ЗАПУСК ПАТЧЕРА';Detail='Проверяем ответ новой версии';Progress=97;Indeterminate=$true}
         try { Start-LumaPatcher $target }
-        catch { $launched = $false; & $Publish @{ Kind='Log'; Text='Открой LumaDropPatcher.exe вручную. Резервная копия сохранена.' } }
+        catch { $launched = $false; & $Publish @{ Kind='Log'; Text=('Файлы обновлены, но запуск не подтверждён: '+$_.Exception.Message+' Резервная копия сохранена.') } }
         & $Publish @{ Kind='Log'; Text=('Резервная копия сохранена в папке: ' + $backup) }
         if ($migrating -or $legacyLink) {
             & $Publish @{ Kind='Log'; Text=('Папка установки: LumaDrop. В Chrome открой chrome://extensions, удали старую запись LumaDrop и нажми «Загрузить распакованное расширение». Выбери ' + (Join-Path $target 'extension') + '. Это нужно один раз после смены пути.') }
