@@ -1,10 +1,16 @@
 {
-  "min_version": "1.0.0",
-  "current_version": "1.2.3",
-  "download_bat_url": "https://iwankochura.github.io/lumadrop-updates/update.bat",
-  "download_zip_url": "https://github.com/iwankochura/lumadrop-bin/releases/latest/download/LumaDropV3-v1.2.3.zip",
-  "force_update": false,
+  "current_version": "2.0.0",
+  "min_version": "2.0.0",
   "active": true,
-  "message": "",
-  "changelog": "Обновлён дизайн попапа, выровнены отступы. Добавлены круглые кнопки Telegram и условий использования. Обработка видео без изменений."
+  "force_update": false,
+  "paused": false,
+  "message": "Эта версия больше не поддерживается.",
+  "changelog": "Глобальное обновления, метод поменял полностью логику обработки.",
+  "published_at": 1793654918,
+  "support_url": "https://t.me/wiqsyzxc",
+  "support_handle": "@wqisyzxc",
+  "download_bat_url": "https://iwankochura.github.io/lumadrop-updates/update.bat",
+  "download_zip_url": "https://github.com/iwankochura/lumadrop-bin/releases/download/untagged-17be0286a2d7b45c1731/LumaDrop-v2.0.0-4a2a1e305f4a.zip",
+  "sha256": "4a2a1e305f4a23a8741bbefbed8dcd20f767103f1629bccb7aa415239ef16308",
+  "size_bytes": 221753026
 }
