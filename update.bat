@@ -58,14 +58,6 @@ function Move-LumaDirectory([string]$Source, [string]$Destination) {
     [IO.Directory]::Move($Source, $Destination)
 }
 
-function New-LumaCompatibilityLink([string]$Legacy, [string]$Canonical) {
-    if ([IO.Path]::GetFileName($Legacy) -ne 'LumaDropV3' -or [IO.Path]::GetFileName($Canonical) -ne 'LumaDrop' -or
-        [IO.Path]::GetDirectoryName($Legacy) -ne [IO.Path]::GetDirectoryName($Canonical) -or
-        (Test-Path -LiteralPath $Legacy)) { throw 'Небезопасный путь совместимости.' }
-    Assert-LumaPlainDirectory $Canonical
-    New-Item -ItemType Junction -Path $Legacy -Target $Canonical -ErrorAction Stop | Out-Null
-}
-
 function Stop-LumaPatcher([string]$Target, [Threading.CancellationToken]$Token) {
     # Check busy before stopping any process. No changes to the patcher API.
     $listeners = @([Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() |
@@ -285,15 +277,10 @@ function Invoke-LumaUpdate {
                 Move-LumaDirectory $installTarget $canonicalBackup; $movedCanonical = $true
             }
             Move-LumaDirectory $newRoot $installTarget; $swapped = $true
-            if ($migrating) { New-LumaCompatibilityLink $originalTarget $installTarget }
         } catch {
             $swapError = $_.Exception.Message
             try {
                 if ($swapped) {
-                    $compat = Get-Item -LiteralPath $originalTarget -Force -ErrorAction SilentlyContinue
-                    if ($migrating -and $compat -and $compat.LinkType -eq 'Junction' -and @($compat.Target)[0] -eq $installTarget) {
-                        [IO.Directory]::Delete($originalTarget)
-                    }
                     Move-LumaDirectory $installTarget $newRoot; $swapped = $false
                 }
                 if ($movedCanonical) { Move-LumaDirectory $canonicalBackup $installTarget; $movedCanonical = $false }
@@ -302,6 +289,15 @@ function Invoke-LumaUpdate {
             throw ('Не удалось заменить файлы. Старая версия восстановлена. Закрой программы, открытые в папке LumaDrop. Причина: ' + $swapError)
         }
         $target = $installTarget
+        # Remove only the compatibility junction created by the previous updater.
+        # Directory.Delete without recursion removes the link, never its contents.
+        $legacyPath = Join-Path $parent 'LumaDropV3'
+        $legacyLink = Get-Item -LiteralPath $legacyPath -Force -ErrorAction SilentlyContinue
+        if ($legacyLink -and $legacyLink.LinkType -eq 'Junction' -and @($legacyLink.Target).Count -eq 1 -and
+            [IO.Path]::GetFullPath([string]@($legacyLink.Target)[0]).TrimEnd('\') -eq $target.TrimEnd('\')) {
+            try { [IO.Directory]::Delete($legacyPath) }
+            catch { & $Publish @{Kind='Log';Text='Не удалось убрать старую ссылку LumaDropV3. Удали только ссылку вручную после подключения расширения из LumaDrop.'} }
+        }
         foreach ($saved in @($backup,$canonicalBackup)) {
             if ($saved -and (Test-Path -LiteralPath $saved)) {
                 try { [IO.File]::SetAttributes($saved,([IO.File]::GetAttributes($saved) -bor [IO.FileAttributes]::Hidden)) } catch { }
@@ -312,10 +308,10 @@ function Invoke-LumaUpdate {
         try { Start-LumaPatcher $target }
         catch { $launched = $false; & $Publish @{ Kind='Log'; Text='Открой LumaDropPatcher.exe вручную. Резервная копия сохранена.' } }
         & $Publish @{ Kind='Log'; Text=('Резервная копия сохранена в папке: ' + $backup) }
-        if ($migrating) {
-            & $Publish @{ Kind='Log'; Text='Файлы установлены в LumaDrop. Старый путь LumaDropV3 сохранён как ссылка для Chrome. В chrome://extensions нажми «Обновить» у LumaDrop, затем обнови вкладку TikTok Studio.' }
+        if ($migrating -or $legacyLink) {
+            & $Publish @{ Kind='Log'; Text=('Папка установки: LumaDrop. В Chrome открой chrome://extensions, удали старую запись LumaDrop и нажми «Загрузить распакованное расширение». Выбери ' + (Join-Path $target 'extension') + '. Это нужно один раз после смены пути.') }
         } else { & $Publish @{ Kind='Log'; Text='В Chrome открой chrome://extensions и перезагрузи LumaDrop, затем обнови вкладку TikTok Studio.' } }
-        & $Publish @{ Kind='Done'; Stage='ОБНОВЛЕНИЕ УСТАНОВЛЕНО'; Detail=('Версия ' + $version + ' · обнови расширение в Chrome'); Progress=100; Target=$target; Version=$version.ToString(); Launched=$launched }
+        & $Publish @{ Kind='Done'; Stage='ОБНОВЛЕНИЕ УСТАНОВЛЕНО'; Detail=$(if($migrating -or $legacyLink){'Подключи LumaDrop\extension заново в Chrome · инструкция в журнале'}else{'Версия ' + $version + ' · обнови расширение в Chrome'}); Progress=100; Target=$target; Version=$version.ToString(); Launched=$launched }
         return @{ Version=$version.ToString(); Target=$target; Launched=$launched }
     } finally {
         $client.Dispose()
